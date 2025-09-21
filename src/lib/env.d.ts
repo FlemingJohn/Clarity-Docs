@@ -1,0 +1,12 @@
+declare const process: {
+  env: {
+    GOOGLE_CLOUD_API_KEY?: string;
+    GEMINI_API_KEY?: string;
+    NEXT_PUBLIC_FIREBASE_API_KEY?: string;
+    GCLOUD_PROJECT?: string;
+    DOCAI_PROCESSOR_ID?: string;
+    DOCAI_LOCATION?: string;
+    GOOGLE_CLOUD_CLIENT_EMAIL?: string;
+    GOOGLE_CLOUD_PRIVATE_KEY?: string;
+  };
+};

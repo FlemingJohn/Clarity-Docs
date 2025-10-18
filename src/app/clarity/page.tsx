@@ -1,22 +1,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { summarizeDocumentAction } from '@/lib/actions';
-import type { GeneratePlainLanguageSummaryOutput } from '@/ai/flows/generate-plain-language-summary';
 
 import DocumentUpload from '@/components/clarity-docs/document-upload';
-import SummaryView from '@/components/clarity-docs/summary-view';
 import SummarySkeleton from '@/components/clarity-docs/summary-skeleton';
 import { useAuth } from '@/components/auth/auth-provider';
 
 export default function ClarityPage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [documentText, setDocumentText] = useState('');
-  const [summaryData, setSummaryData] = useState<GeneratePlainLanguageSummaryOutput | null>(null);
-  const [agreementType, setAgreementType] = useState<string | undefined>();
   const { toast } = useToast();
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -27,7 +20,7 @@ export default function ClarityPage() {
     }
   }, [user, loading, router]);
 
-  const handleSummarize = async (text: string, agreementType?: string) => {
+  const handleSummarize = (text: string, agreementType?: string) => {
     if (!text.trim()) {
       toast({
         variant: 'destructive',
@@ -36,49 +29,32 @@ export default function ClarityPage() {
       });
       return;
     }
-    setIsLoading(true);
-    setDocumentText(text);
-    setAgreementType(agreementType);
 
-    const result = await summarizeDocumentAction({ documentText: text, agreementType });
-
-    setIsLoading(false);
-
-    if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Summarization Failed',
-        description: result.error,
-      });
-      setDocumentText('');
-    } else if (result.summary) {
-      setSummaryData(result as GeneratePlainLanguageSummaryOutput);
+    // Store document data in localStorage for the summary page (persists across reloads)
+    localStorage.setItem('clarityDocumentText', text);
+    if (agreementType) {
+      localStorage.setItem('clarityAgreementType', agreementType);
+    } else {
+      localStorage.removeItem('clarityAgreementType');
     }
-  };
+    // Clear any existing summary data to force regeneration
+    localStorage.removeItem('claritySummaryData');
 
-  const handleReset = () => {
-    setDocumentText('');
-    setSummaryData(null);
-    setAgreementType(undefined);
-  };
-
-  const renderContent = () => {
-    if (isLoading) {
-      return <SummarySkeleton />;
-    }
-    if (summaryData) {
-      return (
-        <SummaryView originalText={documentText} summaryData={summaryData} onReset={handleReset} agreementType={agreementType} />
-      );
-    }
-    return <DocumentUpload onSummarize={handleSummarize} />;
+    // Navigate to summary page
+    router.push('/clarity/summary');
   };
 
   if (loading || !user) {
     return (
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <SummarySkeleton />
+      </div>
     );
   }
 
-  return <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderContent()}</div>;
+  return (
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <DocumentUpload onSummarize={handleSummarize} />
+    </div>
+  );
 }

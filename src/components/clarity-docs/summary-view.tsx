@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { CalendarPlus, CheckCircle, ChevronDown, Languages, Loader2, MessageSquareQuote, Milestone, MinusCircle, PlusCircle, RotateCcw, Send, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react';
+import { CalendarPlus, CheckCircle, ChevronDown, Copy, FileText, Languages, Loader2, MessageSquareQuote, Milestone, MinusCircle, PlusCircle, RotateCcw, Send, ThumbsDown, ThumbsUp, X, XCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -26,6 +26,15 @@ import type { ChartConfig } from '@/components/ui/chart';
 import { Pie, PieChart, Cell } from 'recharts';
 import type { GenerateRiskScoreOutput } from '@/ai/flows/generate-risk-score';
 import { Badge } from '../ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 type SummaryViewProps = {
   originalText: string;
@@ -96,7 +105,7 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
   const [isTimelineLoading, setIsTimelineLoading] = useState(false);
   const [negotiationSuggestions, setNegotiationSuggestions] = useState<NegotiationSuggestion[]>([]);
   const [isNegotiationLoading, setIsNegotiationLoading] = useState(false);
-  const [showFullDocument, setShowFullDocument] = useState(false);
+  const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Progressive disclosure configuration
@@ -107,15 +116,27 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
     }
     return text.slice(0, PREVIEW_CHARACTERS) + '...';
   };
-  
-  const toggleDocumentView = () => {
-    setShowFullDocument(!showFullDocument);
-  };
 
   const resetAllTranslations = () => {
     setTranslatedSummary(null);
     setTranslatedDos(null);
     setTranslatedDonts(null);
+  };
+
+  const handleCopyDocument = async () => {
+    try {
+      await navigator.clipboard.writeText(originalText);
+      toast({
+        title: 'Copied!',
+        description: 'Document text copied to clipboard.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Copy Failed',
+        description: 'Failed to copy document text.',
+      });
+    }
   };
 
   const handleTranslate = async () => {
@@ -316,58 +337,57 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-6 h-full min-h-[500px]">
-      <Card className="flex flex-col">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Original Document</CardTitle>
-            {originalText.length > PREVIEW_CHARACTERS && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={toggleDocumentView}
-                className="text-xs"
-              >
-                {showFullDocument ? 'Show Less' : 'Show More'}
-                <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${showFullDocument ? 'rotate-180' : ''}`} />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
-          <ScrollArea className="flex-1 h-0 rounded-md border p-4 text-sm whitespace-pre-wrap">
-            {showFullDocument ? originalText : getPreviewText(originalText)}
-          </ScrollArea>
-          {!showFullDocument && originalText.length > PREVIEW_CHARACTERS && (
-            <div className="mt-2 text-center">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={toggleDocumentView}
-                className="text-xs"
-              >
-                Show Full Document ({Math.round((originalText.length - PREVIEW_CHARACTERS) / 1000)}k more characters)
-                <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <Card className="flex flex-col">
-        <CardHeader>
-          <div className="flex justify-between items-start gap-2">
-            <div>
-              <CardTitle>Clarity Panel</CardTitle>
-            </div>
-             <Button variant="outline" size="sm" onClick={onReset}>
+    <div className="w-full h-full">
+      <Card className="flex flex-col h-full">
+        <CardHeader className="flex-shrink-0">
+          <div className="flex justify-between items-center gap-2">
+            <CardTitle>Clarity Panel</CardTitle>
+            <div className="flex items-center gap-2">
+              <Dialog open={isDocumentDialogOpen} onOpenChange={setIsDocumentDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FileText className="mr-2 h-4 w-4" />
+                    View Original
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[85vh] [&>button]:hidden">
+                  <DialogHeader>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <DialogTitle>Original Document</DialogTitle>
+                        <DialogDescription>
+                          Full text of the uploaded document
+                        </DialogDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleCopyDocument}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy
+                        </Button>
+                        <Button variant="default" size="sm" onClick={() => setIsDocumentDialogOpen(false)}>
+                          <X className="mr-2 h-4 w-4" />
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogHeader>
+                  <ScrollArea className="h-[65vh] w-full rounded-md border p-4">
+                    <div className="text-sm whitespace-pre-wrap">
+                      {originalText}
+                    </div>
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
+              <Button variant="outline" size="sm" onClick={onReset}>
                 <RotateCcw className="mr-2 h-4 w-4" />
                 New
               </Button>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
+        <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <Tabs defaultValue="summary" className="w-full flex-1 flex flex-col" onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
               <TabsTrigger value="summary">Summary</TabsTrigger>
               <TabsTrigger value="risks">Risk Score</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -375,8 +395,8 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
               <TabsTrigger value="in-simple-terms">In Simple Terms</TabsTrigger>
               <TabsTrigger value="negotiation">Negotiate</TabsTrigger>
             </TabsList>
-            <TabsContent value="summary" className="flex-1 flex flex-col">
-               <div className="flex gap-2 p-4 border-b">
+                        <TabsContent value="summary" className="flex-1 flex flex-col overflow-hidden mt-0">
+               <div className="flex gap-2 p-4 border-b flex-shrink-0">
                  <Select value={targetLanguage} onValueChange={setTargetLanguage}>
                   <SelectTrigger className="w-[140px] h-9" disabled={isTranslating}>
                     <SelectValue placeholder="Translate..." />
@@ -394,15 +414,15 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 </Button>
               </div>
               {isTranslating && !translatedSummary && (
-                <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Translating...</span>
                 </div>
               )}
-              <p className="text-sm text-muted-foreground p-4">
+              <p className="text-sm text-muted-foreground p-4 flex-shrink-0">
                 {translatedSummary ? `Translated to ${languages.find(l => l.value === targetLanguage)?.label}. Click on a highlighted term to get its definition.` : 'Click on a highlighted term to get its definition.'}
               </p>
-              <ScrollArea className="flex-1 h-0">
+              <ScrollArea className="flex-1 min-h-0">
                 <div className="text-base leading-relaxed p-4 space-y-4">
                       {displayedSummary.map((item, index) => (
                         <div key={index}>
@@ -480,14 +500,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 </div>
               </ScrollArea>
             </TabsContent>
-            <TabsContent value="risks" className="flex-1 flex flex-col">
+            <TabsContent value="risks" className="flex-1 flex flex-col overflow-hidden mt-0">
                 {isRisksLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Analyzing document for risks...</span>
                     </div>
                 )}
-                 <ScrollArea className='flex-1 h-0'>
+                 <ScrollArea className='flex-1 min-h-0'>
                     <div className="p-4 space-y-6">
                         {riskScore ? (
                            <Card>
@@ -560,14 +580,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                     </div>
                 </ScrollArea>
             </TabsContent>
-            <TabsContent value="timeline" className="flex-1 flex flex-col">
+            <TabsContent value="timeline" className="flex-1 flex flex-col overflow-hidden mt-0">
                 {isTimelineLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Scanning document for key dates...</span>
                     </div>
                 )}
-                <ScrollArea className="flex-1 h-0">
+                <ScrollArea className="flex-1 min-h-0">
                     <div className="p-4 space-y-4">
                         {timelineEvents.length > 0 ? (
                             <div className="relative pl-6">
@@ -588,14 +608,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                     </div>
                 </ScrollArea>
             </TabsContent>
-            <TabsContent value="scenarios" className="flex-1 flex flex-col h-full">
+            <TabsContent value="scenarios" className="flex-1 flex flex-col overflow-hidden mt-0">
                 {isScenarioLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Analyzing document...</span>
                     </div>
                 )}
-                <ScrollArea className="flex-1 h-0">
+                <ScrollArea className="flex-1 min-h-0">
                     <div className="p-4 space-y-4">
                         {scenarios.map((scenario, index) => (
                             <div key={index} className="space-y-3">
@@ -640,7 +660,7 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                         )}
                     </div>
                 </ScrollArea>
-                <div className="p-4 border-t">
+                <div className="p-4 border-t flex-shrink-0">
                     <form onSubmit={handleScenarioSubmit} className="flex items-center gap-2">
                         <Input 
                             type="text"
@@ -656,14 +676,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                     </form>
                 </div>
             </TabsContent>
-             <TabsContent value="in-simple-terms" className="flex-1 flex flex-col">
+             <TabsContent value="in-simple-terms" className="flex-1 flex flex-col overflow-hidden mt-0">
                 {isExamplesLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Generating real-world examples...</span>
                     </div>
                 )}
-                <ScrollArea className='flex-1 h-0'>
+                <ScrollArea className='flex-1 min-h-0'>
                     <div className="p-4 space-y-4">
                         {examples.length > 0 ? (
                            <Accordion type="single" collapsible className="w-full">
@@ -680,14 +700,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                     </div>
                 </ScrollArea>
             </TabsContent>
-             <TabsContent value="negotiation" className="flex-1 flex flex-col">
+             <TabsContent value="negotiation" className="flex-1 flex flex-col overflow-hidden mt-0">
                 {isNegotiationLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Generating negotiation suggestions...</span>
                     </div>
                 )}
-                <ScrollArea className='flex-1 h-0'>
+                <ScrollArea className='flex-1 min-h-0'>
                     <div className="p-4 space-y-4">
                         {negotiationSuggestions.length > 0 ? (
                            <Accordion type="single" collapsible className="w-full">

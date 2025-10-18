@@ -663,10 +663,10 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                   ? `Translated to ${languages.find(l => l.value === targetLanguage)?.label}. Click on a highlighted term to get its definition. Use the voice-over button to listen to the summary.` 
                   : 'Click on a highlighted term to get its definition. Use the voice-over button to listen to the summary.'}
               </p>
-              <div className="text-base leading-relaxed p-4 space-y-4 pb-12">
+              <div className={`text-base leading-relaxed p-4 space-y-4 pb-12 ${translatedSummary ? 'break-words' : ''}`} style={translatedSummary ? { lineHeight: '1.8', wordSpacing: '0.1em' } : {}}>
                       {displayedSummary.map((item, index) => (
                         <div key={index}>
-                          <h3 className="font-semibold text-md mb-1">{item.keyPoint}</h3>
+                          <h3 className="font-semibold text-md mb-1 break-words">{item.keyPoint}</h3>
                           <InteractiveText text={item.description} context={originalText} />
                         </div>
                       ))}
@@ -710,14 +710,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                               </Button>
                             </div>
                           </div>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${translatedDos || translatedDonts ? 'break-words' : ''}`} style={translatedDos || translatedDonts ? { lineHeight: '1.8' } : {}}>
                             <div>
                                 <h3 className="font-semibold text-lg mb-2 flex items-center gap-2"><ThumbsUp className="text-green-500"/> Do's</h3>
                                 <div className="space-y-2">
                                 {displayedDos.map((item, index) => (
                                     <div key={index} className="flex items-start gap-2">
                                         <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                                        <p className="text-sm text-muted-foreground">{item}</p>
+                                        <p className="text-sm text-muted-foreground break-words">{item}</p>
                                     </div>
                                 ))}
                                 </div>
@@ -728,7 +728,7 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                 {displayedDonts.map((item, index) => (
                                     <div key={index} className="flex items-start gap-2">
                                         <XCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                                        <p className="text-sm text-muted-foreground">{item}</p>
+                                        <p className="text-sm text-muted-foreground break-words">{item}</p>
                                     </div>
                                 ))}
                                 </div>

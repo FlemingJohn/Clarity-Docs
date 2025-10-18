@@ -70,8 +70,6 @@ const translateSchema = z.object({
   targetLanguage: z.string().min(1, 'Target language cannot be empty.'),
 });
 
-const DELIMITER = '|||';
-
 export async function translateTextAction(input: { data: TranslationData, targetLanguage: string }) {
   try {
     const validatedInput = translateSchema.parse(input);
@@ -92,10 +90,17 @@ export async function translateTextAction(input: { data: TranslationData, target
     }
 
     const url = `https://translation.googleapis.com/language/translate/v2?key=${GOOGLE_CLOUD_API_KEY}`;
+    
+    // Translate each text individually to maintain proper formatting for Indic languages
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ q: textsToTranslate.join(DELIMITER), target: targetLanguage, format: 'text' }),
+      body: JSON.stringify({ 
+        q: textsToTranslate, 
+        target: targetLanguage, 
+        format: 'text',
+        model: 'nmt' // Use Neural Machine Translation for better quality
+      }),
     });
 
     const responseBody = await response.json();
@@ -104,10 +109,10 @@ export async function translateTextAction(input: { data: TranslationData, target
       throw new Error(responseBody.error?.message || 'Unknown API error.');
     }
 
-    const translatedText = responseBody.data?.translations?.[0]?.translatedText;
-    if (!translatedText) throw new Error('Translation failed to return text.');
+    const translations = responseBody.data?.translations;
+    if (!translations || translations.length === 0) throw new Error('Translation failed to return text.');
 
-    let translatedTexts = translatedText.split(DELIMITER).map((t: string) => t.trim());
+    const translatedTexts = translations.map((t: any) => t.translatedText.trim());
     let currentIndex = 0;
     
     const translatedData: TranslationData = {};

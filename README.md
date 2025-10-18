@@ -32,9 +32,16 @@ ClarityDocs is an intelligent document analysis platform that uses advanced AI t
 - **Real-world Examples**: "In Simple Terms" explanations with practical scenarios
 - **Multi-language Support**: Translate summaries to Hindi, Tamil, Telugu, Malayalam
 
-### 🔐 **Secure & User-Friendly**
-- **Firebase Authentication**: Secure user accounts and session management
-- **Privacy-First**: Documents processed securely with no permanent storage
+### � **Document History & Management**
+- **Document History**: Automatically saves all processed documents with timestamps
+- **Quick Access**: View and reload any previous document summary instantly
+- **Search & Filter**: Find past documents by name, type, or upload date
+- **Delete Control**: Remove unwanted documents from your history anytime
+
+### �🔐 **Secure & User-Friendly**
+- **Firebase Authentication**: Secure user accounts with email/password and Google OAuth
+- **Cloud Storage**: Documents securely stored in Firestore with user-level permissions
+- **Privacy-First**: Only you can access your documents - full data isolation
 - **Responsive Design**: Beautiful, mobile-friendly interface with dark/light themes
 
 ## 🎯 Perfect For
@@ -53,7 +60,7 @@ ClarityDocs is an intelligent document analysis platform that uses advanced AI t
   - Gemini API
   - Document AI API
   - Translation API
-- **Firebase Project** with Authentication enabled
+- **Firebase Project** with Authentication and Firestore enabled
 
 ### Installation
 
@@ -72,10 +79,21 @@ ClarityDocs is an intelligent document analysis platform that uses advanced AI t
    Create a `.env` file in the root directory with the following variables:
 
    ```env
-   # Public (client-side) - safe to expose
+   # ========================================
+   # Firebase Configuration (Public - Client-side)
+   # ========================================
+   # These are safe to expose in the browser
    NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+   NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 
-   # Server-side (keep secret!)
+   # ========================================
+   # Google AI & Cloud Services (Server-side)
+   # ========================================
+   # Keep these secret! Never commit to Git
    GEMINI_API_KEY=your_gemini_api_key
    GOOGLE_CLOUD_API_KEY=your_google_cloud_api_key
 
@@ -85,7 +103,7 @@ ClarityDocs is an intelligent document analysis platform that uses advanced AI t
    DOCAI_LOCATION=us
 
    # Service account credentials (used by server-side code)
-   GOOGLE_CLOUD_CLIENT_EMAIL=your_service_account_email
+   GOOGLE_CLOUD_CLIENT_EMAIL=your_service_account_email@your-project.iam.gserviceaccount.com
 
    # Private key (preserve newlines with \\n)
    GOOGLE_CLOUD_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_PRIVATE_KEY_HERE\\n-----END PRIVATE KEY-----\\n"
@@ -113,7 +131,14 @@ ClarityDocs is an intelligent document analysis platform that uses advanced AI t
 
 | Variable | Description | Where to Get |
 |----------|-------------|--------------|
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Web API Key (public) | Firebase Console → Project Settings → Web App |
+| **Firebase Configuration (Public - Client-side)** |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Web API Key | Firebase Console → Project Settings → Web App |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain | Firebase Console → Project Settings (format: `project-id.firebaseapp.com`) |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase Project ID | Firebase Console → Project Settings |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase App ID | Firebase Console → Project Settings → Web App |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase Messaging Sender ID | Firebase Console → Project Settings |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | Firebase Analytics Measurement ID (optional) | Firebase Console → Project Settings |
+| **Google AI & Cloud Services (Server-side - Keep Secret!)** |
 | `GEMINI_API_KEY` | Google Gemini API Key | Google AI Studio → API Keys |
 | `GOOGLE_CLOUD_API_KEY` | Google Cloud API Key | Google Cloud Console → APIs & Services → Credentials |
 | `GCLOUD_PROJECT` | Google Cloud Project ID | Google Cloud Console → Project Info |
@@ -161,11 +186,48 @@ ClarityDocs is an intelligent document analysis platform that uses advanced AI t
 1. **Create Firebase Project**
    - Go to [Firebase Console](https://console.firebase.google.com/)
    - Create new project or use existing Google Cloud project
-   - Enable Authentication with Email/Password provider
+   - Enable Authentication:
+     - Email/Password provider
+     - **Google OAuth provider** (recommended for seamless login)
 
-2. **Get Firebase Config**
+2. **Configure Google OAuth** (Recommended)
+   
+   **Step A: Enable Google Provider in Firebase**
+   - In Firebase Console → Authentication → Sign-in method
+   - Enable "Google" provider (toggle it ON)
+   - Add authorized domains (e.g., `localhost`, your production domain)
+   - Note: Firebase will auto-create an OAuth client or you can select an existing one
+
+   **Step B: Configure Google Cloud Console OAuth**
+   
+   ⚠️ **Critical for OAuth to work**: You MUST configure redirect URIs in Google Cloud Console
+   
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Select your project
+   - Navigate to **APIs & Services** → **Credentials**
+   - Find the OAuth 2.0 Client ID (type: Web application)
+   - Click the edit icon (✏️)
+   - Add **Authorized redirect URIs** (EXACT format required):
+     ```
+     https://your-project-id.firebaseapp.com/__/auth/handler
+     http://localhost:9002/__/auth/handler
+     ```
+   - Add **Authorized JavaScript origins**:
+     ```
+     https://your-project-id.firebaseapp.com
+     http://localhost:9002
+     ```
+   - Click **SAVE** and wait 5-10 minutes for changes to propagate
+   
+   **Common Errors:**
+   - `redirect_uri_mismatch` → Check that redirect URI matches EXACTLY (including `/__/auth/handler`)
+   - `Access blocked: invalid request` → OAuth client not configured or disabled
+   - `auth/unauthorized-domain` → Add domain to Firebase authorized domains
+
+3. **Get Firebase Config**
    - Project Settings → General → Your apps
    - Add web app and copy the config values
+   - All Firebase config values should go into your `.env` file (see Environment Setup above)
 
 ## 🏗️ Architecture
 

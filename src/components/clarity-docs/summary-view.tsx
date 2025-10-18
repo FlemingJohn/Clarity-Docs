@@ -940,21 +940,21 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                                 </Button>
                                               </div>
                                             </div>
-                                            <Accordion type="single" collapsible className="w-full">
+                                            <div className="space-y-4">
                                                 {riskScore.toneAnalysis.map((item, index) => (
-                                                    <AccordionItem key={index} value={`item-${index}`}>
-                                                        <AccordionTrigger className="text-left text-sm">
-                                                            <div className="flex items-center gap-4 w-full">
+                                                    <Card key={index} className="border-l-4 border-l-primary">
+                                                        <CardHeader className="pb-3">
+                                                            <div className="flex items-center gap-3">
                                                                 <Badge variant={getToneBadgeVariant(item.tone)}>{item.tone}</Badge>
-                                                                <span className="flex-1 text-muted-foreground">{item.clause}</span>
+                                                                <CardTitle className="text-base flex-1">{item.clause}</CardTitle>
                                                             </div>
-                                                        </AccordionTrigger>
-                                                        <AccordionContent className="text-sm">
-                                                            {item.explanation}
-                                                        </AccordionContent>
-                                                    </AccordionItem>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <p className="text-sm text-muted-foreground">{item.explanation}</p>
+                                                        </CardContent>
+                                                    </Card>
                                                 ))}
-                                            </Accordion>
+                                            </div>
                                         </div>
                                     )}
                                 </CardContent>

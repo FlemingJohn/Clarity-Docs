@@ -95,7 +95,7 @@ function SummaryPageContent() {
 
   if (loading || !user) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-4">
+      <div className="w-full p-16">
         <SummarySkeleton />
       </div>
     );
@@ -103,7 +103,7 @@ function SummaryPageContent() {
 
   if (isLoading) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-4">
+      <div className="w-full p-16">
         <SummarySkeleton />
       </div>
     );
@@ -128,7 +128,7 @@ function SummaryPageContent() {
 export default function SummaryPage() {
   return (
     <Suspense fallback={
-      <div className="w-full h-full flex items-center justify-center p-4">
+      <div className="w-full p-16">
         <SummarySkeleton />
       </div>
     }>

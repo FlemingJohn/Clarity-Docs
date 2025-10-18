@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { CalendarPlus, CheckCircle, ChevronDown, Copy, FileText, Languages, Loader2, MessageSquareQuote, Milestone, MinusCircle, PlusCircle, RotateCcw, Send, ThumbsDown, ThumbsUp, X, XCircle } from 'lucide-react';
+import { CalendarPlus, CheckCircle, ChevronDown, Copy, FileText, Languages, Loader2, MessageSquareQuote, Mic, MicOff, Milestone, MinusCircle, Pause, Play, PlusCircle, RotateCcw, Send, ThumbsDown, ThumbsUp, Volume2, VolumeX, X, XCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -106,6 +106,11 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
   const [negotiationSuggestions, setNegotiationSuggestions] = useState<NegotiationSuggestion[]>([]);
   const [isNegotiationLoading, setIsNegotiationLoading] = useState(false);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [activeVoiceSection, setActiveVoiceSection] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
   const { toast } = useToast();
 
   // Progressive disclosure configuration
@@ -137,6 +142,189 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
         description: 'Failed to copy document text.',
       });
     }
+  };
+
+  // Language code mapping for speech synthesis
+  const getLanguageCode = (langValue: string): string => {
+    const langMap: { [key: string]: string } = {
+      'en': 'en-US',
+      'hi': 'hi-IN',
+      'ml': 'ml-IN',
+      'ta': 'ta-IN',
+      'te': 'te-IN',
+    };
+    return langMap[langValue] || 'en-US';
+  };
+
+  // Generic voice-over function for any section
+  const handleGenericVoiceOver = (textContent: string, sectionId: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      toast({
+        variant: 'destructive',
+        title: 'Not Supported',
+        description: 'Text-to-speech is not supported in your browser.',
+      });
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    // If not speaking or different section, start speaking
+    if (!isSpeaking && !isPaused) {
+      const utterance = new SpeechSynthesisUtterance(textContent);
+      
+      // Set language based on current selection or default to English
+      const currentLang = targetLanguage || 'en';
+      utterance.lang = getLanguageCode(currentLang);
+      
+      // Set voice properties
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      // Try to find a voice that matches the language
+      const voices = synth.getVoices();
+      const matchingVoice = voices.find(voice => voice.lang.startsWith(currentLang));
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setIsPaused(false);
+        setActiveVoiceSection(sectionId);
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        setActiveVoiceSection(null);
+      };
+
+      utterance.onerror = (event) => {
+        if (event.error !== 'canceled' && event.error !== 'interrupted') {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setActiveVoiceSection(null);
+          toast({
+            variant: 'destructive',
+            title: 'Voice-over Failed',
+            description: 'There was an error playing the voice-over.',
+          });
+        }
+      };
+
+      synth.speak(utterance);
+    }
+  };
+
+  const handleVoiceOver = () => {
+    // Get the text to speak
+    const displayedSummary = translatedSummary || summaryData.summary;
+    const textToSpeak = displayedSummary
+      .map(item => `${item.keyPoint}. ${item.description}`)
+      .join('. ');
+    
+    handleGenericVoiceOver(textToSpeak, 'summary');
+  };
+
+  const handlePauseResume = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (isSpeaking && !isPaused) {
+      // Pause
+      synth.pause();
+      setIsPaused(true);
+    } else if (isSpeaking && isPaused) {
+      // Resume
+      synth.resume();
+      setIsPaused(false);
+    }
+  };
+
+  const handleStopVoiceOver = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+    
+    if (isSpeaking || isPaused) {
+      synth.cancel();
+      setIsSpeaking(false);
+      setIsPaused(false);
+      setActiveVoiceSection(null);
+    }
+  };
+
+  // Speech recognition for voice-to-text
+  const handleVoiceToText = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Check for browser support
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      toast({
+        variant: 'destructive',
+        title: 'Not Supported',
+        description: 'Speech recognition is not supported in your browser. Try Chrome or Edge.',
+      });
+      return;
+    }
+
+    if (isListening && recognition) {
+      // Stop listening
+      recognition.stop();
+      setIsListening(false);
+      return;
+    }
+
+    // Start listening
+    const recognitionInstance = new SpeechRecognition();
+    recognitionInstance.continuous = false;
+    recognitionInstance.interimResults = false;
+    
+    // Set language based on current selection or default to English
+    const currentLang = targetLanguage || 'en';
+    recognitionInstance.lang = getLanguageCode(currentLang);
+
+    recognitionInstance.onstart = () => {
+      setIsListening(true);
+      toast({
+        title: 'Listening...',
+        description: 'Speak your question now.',
+      });
+    };
+
+    recognitionInstance.onresult = (event: any) => {
+      const { transcript } = event.results[0][0];
+      setScenarioQuestion(transcript);
+    };
+
+    recognitionInstance.onerror = (event: any) => {
+      setIsListening(false);
+      if (event.error !== 'no-speech') {
+        toast({
+          variant: 'destructive',
+          title: 'Recognition Error',
+          description: 'Could not recognize speech. Please try again.',
+        });
+      }
+    };
+
+    recognitionInstance.onend = () => {
+      setIsListening(false);
+    };
+
+    setRecognition(recognitionInstance);
+    recognitionInstance.start();
   };
 
   const handleTranslate = async () => {
@@ -435,6 +623,34 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 <Button variant="outline" size="sm" onClick={handleTranslate} disabled={isTranslating || !targetLanguage}>
                   {isTranslating ? <Loader2 className="h-4 w-4 animate-spin"/> : <Languages className="h-4 w-4" />}
                 </Button>
+                <div className="flex gap-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleVoiceOver}
+                    disabled={isSpeaking || isPaused}
+                    className={isSpeaking ? 'bg-primary/10' : ''}
+                  >
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handlePauseResume}
+                    disabled={!isSpeaking}
+                    className={isPaused ? 'bg-primary/10' : ''}
+                  >
+                    {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleStopVoiceOver}
+                    disabled={!isSpeaking && !isPaused}
+                  >
+                    <VolumeX className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               {isTranslating && !translatedSummary && (
                 <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
@@ -443,7 +659,9 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 </div>
               )}
               <p className="text-sm text-muted-foreground p-4">
-                {translatedSummary ? `Translated to ${languages.find(l => l.value === targetLanguage)?.label}. Click on a highlighted term to get its definition.` : 'Click on a highlighted term to get its definition.'}
+                {translatedSummary 
+                  ? `Translated to ${languages.find(l => l.value === targetLanguage)?.label}. Click on a highlighted term to get its definition. Use the voice-over button to listen to the summary.` 
+                  : 'Click on a highlighted term to get its definition. Use the voice-over button to listen to the summary.'}
               </p>
               <div className="text-base leading-relaxed p-4 space-y-4 pb-12">
                       {displayedSummary.map((item, index) => (
@@ -456,6 +674,42 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                       {(displayedDos?.length > 0 || displayedDonts?.length > 0) && (
                         <>
                           <Separator className='my-6' />
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold text-lg">Do's & Don'ts</h3>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                  const dosText = displayedDos.map((item, i) => `Do number ${i + 1}. ${item}`).join('. ');
+                                  const dontsText = displayedDonts.map((item, i) => `Don't number ${i + 1}. ${item}`).join('. ');
+                                  const fullText = `Do's. ${dosText}. Don'ts. ${dontsText}`;
+                                  handleGenericVoiceOver(fullText, 'dos-donts');
+                                }}
+                                disabled={isSpeaking || isPaused}
+                                className={activeVoiceSection === 'dos-donts' && isSpeaking ? 'bg-primary/10' : ''}
+                              >
+                                <Volume2 className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={handlePauseResume}
+                                disabled={!isSpeaking || activeVoiceSection !== 'dos-donts'}
+                                className={isPaused ? 'bg-primary/10' : ''}
+                              >
+                                {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={handleStopVoiceOver}
+                                disabled={!isSpeaking && !isPaused || activeVoiceSection !== 'dos-donts'}
+                              >
+                                <VolumeX className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <h3 className="font-semibold text-lg mb-2 flex items-center gap-2"><ThumbsUp className="text-green-500"/> Do's</h3>
@@ -532,8 +786,51 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                         {riskScore ? (
                            <Card>
                                 <CardHeader>
-                                    <CardTitle>Risk Score & Analysis</CardTitle>
-                                    <CardDescription>{riskScore.riskSummary}</CardDescription>
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <CardTitle>Risk Score & Analysis</CardTitle>
+                                        <CardDescription>{riskScore.riskSummary}</CardDescription>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          onClick={() => {
+                                            let text = `Risk Score: ${riskScore.riskScore} out of 100. ${riskScore.riskSummary}. `;
+                                            if (riskScore.scoreBreakdown) {
+                                              text += `Positive factors: ${riskScore.scoreBreakdown.positive.join('. ')}. `;
+                                              text += `Negative factors: ${riskScore.scoreBreakdown.negative.join('. ')}. `;
+                                            }
+                                            if (riskScore.toneAnalysis && riskScore.toneAnalysis.length > 0) {
+                                              text += `Tone Analysis: `;
+                                              text += riskScore.toneAnalysis.map(t => `${t.clause}. Tone: ${t.tone}. ${t.explanation}`).join('. ');
+                                            }
+                                            handleGenericVoiceOver(text, 'risks');
+                                          }}
+                                          disabled={isSpeaking || isPaused}
+                                          className={activeVoiceSection === 'risks' && isSpeaking ? 'bg-primary/10' : ''}
+                                        >
+                                          <Volume2 className="h-4 w-4" />
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          onClick={handlePauseResume}
+                                          disabled={!isSpeaking || activeVoiceSection !== 'risks'}
+                                          className={isPaused ? 'bg-primary/10' : ''}
+                                        >
+                                          {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          onClick={handleStopVoiceOver}
+                                          disabled={(!isSpeaking && !isPaused) || activeVoiceSection !== 'risks'}
+                                        >
+                                          <VolumeX className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[200px]">
@@ -551,7 +848,40 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
 
                                     {riskScore.scoreBreakdown && (
                                         <div>
-                                            <h3 className="font-semibold text-lg mb-2">Score Breakdown</h3>
+                                            <div className="flex items-center justify-between mb-2">
+                                              <h3 className="font-semibold text-lg">Score Breakdown</h3>
+                                              <div className="flex gap-1">
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  onClick={() => {
+                                                    const text = `Score Breakdown. Positive factors: ${riskScore.scoreBreakdown.positive.join('. ')}. Negative factors: ${riskScore.scoreBreakdown.negative.join('. ')}`;
+                                                    handleGenericVoiceOver(text, 'score-breakdown');
+                                                  }}
+                                                  disabled={isSpeaking || isPaused}
+                                                  className={activeVoiceSection === 'score-breakdown' && isSpeaking ? 'bg-primary/10' : ''}
+                                                >
+                                                  <Volume2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  onClick={handlePauseResume}
+                                                  disabled={!isSpeaking || activeVoiceSection !== 'score-breakdown'}
+                                                  className={isPaused ? 'bg-primary/10' : ''}
+                                                >
+                                                  {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                                                </Button>
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  onClick={handleStopVoiceOver}
+                                                  disabled={(!isSpeaking && !isPaused) || activeVoiceSection !== 'score-breakdown'}
+                                                >
+                                                  <VolumeX className="h-4 w-4" />
+                                                </Button>
+                                              </div>
+                                            </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                                 <div className="space-y-2">
                                                     <h4 className="font-medium flex items-center gap-2"><PlusCircle className="text-green-500" /> Positive Factors</h4>
@@ -576,7 +906,40 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                     {riskScore.toneAnalysis && riskScore.toneAnalysis.length > 0 && (
                                         <div>
                                             <Separator className="my-6" />
-                                            <h3 className="font-semibold text-lg mb-4">Tone Analysis</h3>
+                                            <div className="flex items-center justify-between mb-4">
+                                              <h3 className="font-semibold text-lg">Tone Analysis</h3>
+                                              <div className="flex gap-1">
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  onClick={() => {
+                                                    const text = `Tone Analysis. ${riskScore.toneAnalysis.map(t => `${t.clause}. Tone: ${t.tone}. ${t.explanation}`).join('. ')}`;
+                                                    handleGenericVoiceOver(text, 'tone-analysis');
+                                                  }}
+                                                  disabled={isSpeaking || isPaused}
+                                                  className={activeVoiceSection === 'tone-analysis' && isSpeaking ? 'bg-primary/10' : ''}
+                                                >
+                                                  <Volume2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  onClick={handlePauseResume}
+                                                  disabled={!isSpeaking || activeVoiceSection !== 'tone-analysis'}
+                                                  className={isPaused ? 'bg-primary/10' : ''}
+                                                >
+                                                  {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                                                </Button>
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  onClick={handleStopVoiceOver}
+                                                  disabled={(!isSpeaking && !isPaused) || activeVoiceSection !== 'tone-analysis'}
+                                                >
+                                                  <VolumeX className="h-4 w-4" />
+                                                </Button>
+                                              </div>
+                                            </div>
                                             <Accordion type="single" collapsible className="w-full">
                                                 {riskScore.toneAnalysis.map((item, index) => (
                                                     <AccordionItem key={index} value={`item-${index}`}>
@@ -649,6 +1012,19 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 )}
                 <div>
                     <div className="p-4 space-y-6 pb-24 mb-20">
+                        {/* Initial greeting message */}
+                        {scenarios.length === 0 && !isScenarioLoading && (
+                            <div className="flex items-start gap-3">
+                                <Avatar className="h-8 w-8 border">
+                                    <AvatarFallback>AI</AvatarFallback>
+                                </Avatar>
+                                <div className="bg-primary/10 text-primary-foreground p-3 rounded-lg w-3/4">
+                                    <p className="font-semibold text-primary">ClarityDocs AI</p>
+                                    <p className="text-sm text-foreground">How can I help you understand this document better? Ask me any "what-if" questions about scenarios, obligations, or potential situations.</p>
+                                </div>
+                            </div>
+                        )}
+                        
                         {scenarios.map((scenario, index) => (
                             <div key={index} className="space-y-4">
                                 <div className="flex items-start gap-3 justify-end">
@@ -664,44 +1040,88 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                     <Avatar className="h-8 w-8 border">
                                         <AvatarFallback>AI</AvatarFallback>
                                     </Avatar>
-                                    <div className="bg-primary/10 text-primary-foreground p-3 rounded-lg w-3/4">
-                                        <p className="font-semibold text-primary">ClarityDocs AI</p>
+                                    <div className="bg-primary/10 text-primary-foreground p-3 rounded-lg w-3/4 relative">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <p className="font-semibold text-primary">ClarityDocs AI</p>
+                                          <div className="flex gap-1">
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 w-7 p-0 bg-white hover:bg-white/90"
+                                              onClick={() => handleGenericVoiceOver(scenario.answer, `scenario-${index}`)}
+                                              disabled={isSpeaking || isPaused}
+                                            >
+                                              <Volume2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 w-7 p-0 bg-white hover:bg-white/90"
+                                              onClick={handlePauseResume}
+                                              disabled={!isSpeaking || activeVoiceSection !== `scenario-${index}`}
+                                            >
+                                              {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                                            </Button>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 w-7 p-0 bg-white hover:bg-white/90"
+                                              onClick={handleStopVoiceOver}
+                                              disabled={(!isSpeaking && !isPaused) || activeVoiceSection !== `scenario-${index}`}
+                                            >
+                                              <VolumeX className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </div>
                                         <p className="text-sm text-foreground">{scenario.answer}</p>
                                     </div>
                                 </div>
                             </div>
                         ))}
-                         {scenarios.length === 0 && !isScenarioLoading && (
-                            <div className="text-sm text-muted-foreground text-center space-y-2">
-                                <p>Try asking one of these questions:</p>
-                                <div className="flex flex-wrap gap-2 justify-center">
-                                    {scenarioSuggestions.map((suggestion, index) => (
-                                        <Button
-                                            key={index}
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-xs"
-                                            onClick={() => submitQuestion(suggestion)}
-                                            disabled={isScenarioLoading}
-                                        >
-                                            {suggestion}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
                 <div className="p-4 pt-8 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                    {/* Suggested questions above input */}
+                    {scenarios.length === 0 && !isScenarioLoading && (
+                        <div className="mb-4 space-y-2">
+                            <p className="text-sm text-muted-foreground text-center">Suggested questions:</p>
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                {scenarioSuggestions.map((suggestion, index) => (
+                                    <Button
+                                        key={index}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                        onClick={() => submitQuestion(suggestion)}
+                                        disabled={isScenarioLoading}
+                                    >
+                                        {suggestion}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <form onSubmit={handleScenarioSubmit} className="flex items-end gap-2 max-w-4xl mx-auto">
-                        <Input 
-                            type="text"
-                            placeholder="Ask a what-if question..."
-                            value={scenarioQuestion}
-                            onChange={(e) => setScenarioQuestion(e.target.value)}
-                            disabled={isScenarioLoading}
-                            className="flex-1"
-                        />
+                        <div className="relative flex-1">
+                            <Input 
+                                type="text"
+                                placeholder="Ask a what-if question or use voice..."
+                                value={scenarioQuestion}
+                                onChange={(e) => setScenarioQuestion(e.target.value)}
+                                disabled={isScenarioLoading || isListening}
+                                className="flex-1 pr-12"
+                            />
+                            <Button 
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className={`absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 ${isListening ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : ''}`}
+                                onClick={handleVoiceToText}
+                                disabled={isScenarioLoading}
+                            >
+                                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                            </Button>
+                        </div>
                         <Button type="submit" size="icon" disabled={isScenarioLoading || !scenarioQuestion.trim()}>
                             {isScenarioLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         </Button>
@@ -721,7 +1141,38 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                 {examples.map((item, index) => (
                                     <Card key={index} className="border-l-4 border-l-primary">
                                         <CardHeader>
-                                            <CardTitle className="text-base">{item.clause}</CardTitle>
+                                            <div className="flex items-center justify-between">
+                                              <CardTitle className="text-base">{item.clause}</CardTitle>
+                                              <div className="flex gap-1">
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={() => handleGenericVoiceOver(`${item.clause}. In simple terms: ${item.example}`, `simple-terms-${index}`)}
+                                                  disabled={isSpeaking || isPaused}
+                                                >
+                                                  <Volume2 className="h-3 w-3" />
+                                                </Button>
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={handlePauseResume}
+                                                  disabled={!isSpeaking || activeVoiceSection !== `simple-terms-${index}`}
+                                                >
+                                                  {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                                                </Button>
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={handleStopVoiceOver}
+                                                  disabled={(!isSpeaking && !isPaused) || activeVoiceSection !== `simple-terms-${index}`}
+                                                >
+                                                  <VolumeX className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            </div>
                                         </CardHeader>
                                         <CardContent className="space-y-2">
                                             <div className="flex items-center gap-2 font-semibold text-sm">
@@ -748,7 +1199,38 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                 {negotiationSuggestions.map((item, index) => (
                                     <Card key={index} className="border-l-4 border-l-primary">
                                         <CardHeader>
-                                            <CardTitle className="text-base">{item.clause}</CardTitle>
+                                            <div className="flex items-center justify-between">
+                                              <CardTitle className="text-base">{item.clause}</CardTitle>
+                                              <div className="flex gap-1">
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={() => handleGenericVoiceOver(`${item.clause}. Negotiation suggestion: ${item.suggestion}`, `negotiate-${index}`)}
+                                                  disabled={isSpeaking || isPaused}
+                                                >
+                                                  <Volume2 className="h-3 w-3" />
+                                                </Button>
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={handlePauseResume}
+                                                  disabled={!isSpeaking || activeVoiceSection !== `negotiate-${index}`}
+                                                >
+                                                  {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                                                </Button>
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={handleStopVoiceOver}
+                                                  disabled={(!isSpeaking && !isPaused) || activeVoiceSection !== `negotiate-${index}`}
+                                                >
+                                                  <VolumeX className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            </div>
                                         </CardHeader>
                                         <CardContent className="space-y-2">
                                             <div className="flex items-center gap-2 font-semibold text-sm">

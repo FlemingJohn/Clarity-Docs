@@ -11,6 +11,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  updateDoc,
   Timestamp,
 } from 'firebase/firestore';
 
@@ -54,6 +55,12 @@ export async function getUserDocumentHistory(
   limitCount: number = 50
 ): Promise<DocumentHistory[]> {
   try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    console.log('Fetching document history for userId:', userId);
+
     const q = query(
       collection(db, 'documentHistory'),
       where('userId', '==', userId),
@@ -79,10 +86,20 @@ export async function getUserDocumentHistory(
       });
     });
 
+    console.log('Successfully fetched', documents.length, 'documents');
     return documents;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching document history:', error);
-    throw new Error('Failed to fetch document history');
+    
+    // Provide more specific error messages
+    if (error?.code === 'permission-denied') {
+      throw new Error('Permission denied. Please ensure you are signed in.');
+    }
+    if (error?.message?.includes('Missing or insufficient permissions')) {
+      throw new Error('Permission denied. Please sign out and sign in again.');
+    }
+    
+    throw new Error(error?.message || 'Failed to fetch document history');
   }
 }
 
@@ -97,6 +114,26 @@ export async function deleteDocumentFromHistory(
   } catch (error) {
     console.error('Error deleting document:', error);
     throw new Error('Failed to delete document');
+  }
+}
+
+/**
+ * Update an existing document in history
+ */
+export async function updateDocumentInHistory(
+  documentId: string,
+  documentData: Partial<Omit<DocumentHistory, 'id' | 'userId' | 'uploadedAt'>>
+): Promise<void> {
+  try {
+    const docRef = doc(db, 'documentHistory', documentId);
+    await updateDoc(docRef, {
+      ...documentData,
+      uploadedAt: Timestamp.now(), // Update timestamp when editing
+    });
+    console.log('Document updated successfully:', documentId);
+  } catch (error) {
+    console.error('Error updating document:', error);
+    throw new Error('Failed to update document');
   }
 }
 

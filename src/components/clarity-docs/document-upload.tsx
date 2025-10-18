@@ -1,21 +1,25 @@
 
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { UploadCloud, Sparkles, Loader2, FileUp } from 'lucide-react';
+import { UploadCloud, Sparkles, Loader2, FileUp, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
 import { processDocumentAction } from '@/lib/actions';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { DocumentHistory } from '@/lib/firestore-actions';
+import { Badge } from '../ui/badge';
 
 
 type DocumentUploadProps = {
   onSummarize: (text: string, agreementType?: string) => void;
   isLoading?: boolean;
+  initialDocument?: DocumentHistory | null;
+  onClearEdit?: () => void;
 };
 
 const agreementTypes = [
@@ -27,12 +31,28 @@ const agreementTypes = [
 ];
 
 
-const DocumentUpload = ({ onSummarize, isLoading = false }: DocumentUploadProps) => {
+const DocumentUpload = ({ onSummarize, isLoading = false, initialDocument, onClearEdit }: DocumentUploadProps) => {
   const [text, setText] = useState('');
   const [agreementType, setAgreementType] = useState<string | undefined>();
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Load initial document when editing
+  useEffect(() => {
+    if (initialDocument) {
+      setText(initialDocument.content);
+      setAgreementType(initialDocument.documentType);
+    }
+  }, [initialDocument]);
+
+  const handleClearEdit = () => {
+    setText('');
+    setAgreementType(undefined);
+    if (onClearEdit) {
+      onClearEdit();
+    }
+  };
   
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -88,9 +108,28 @@ const DocumentUpload = ({ onSummarize, isLoading = false }: DocumentUploadProps)
       <Card className="w-full max-w-2xl shadow-lg">
         <form onSubmit={handleSubmit}>
           <CardHeader>
-            <CardTitle className="text-2xl font-bold">Simplify Your Document</CardTitle>
+            {initialDocument && (
+              <div className="mb-3">
+                <Badge variant="default" className="flex items-center gap-2 w-fit">
+                  <span>Editing: {initialDocument.documentName}</span>
+                  <button
+                    type="button"
+                    onClick={handleClearEdit}
+                    className="hover:bg-primary-foreground/20 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              </div>
+            )}
+            <CardTitle className="text-2xl font-bold">
+              {initialDocument ? 'Edit Your Document' : 'Simplify Your Document'}
+            </CardTitle>
             <CardDescription>
-              Paste your document's text or upload a file to get a simple, easy-to-understand summary.
+              {initialDocument 
+                ? 'Make changes to your document and regenerate the summary.'
+                : 'Paste your document\'s text or upload a file to get a simple, easy-to-understand summary.'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -170,7 +209,7 @@ const DocumentUpload = ({ onSummarize, isLoading = false }: DocumentUploadProps)
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Simplify Pasted Text
+                  {initialDocument ? 'Update & Regenerate Summary' : 'Simplify Pasted Text'}
                 </>
               )}
             </Button>

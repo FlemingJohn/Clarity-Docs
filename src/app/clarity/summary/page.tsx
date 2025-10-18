@@ -9,7 +9,7 @@ import type { GeneratePlainLanguageSummaryOutput } from '@/ai/flows/generate-pla
 import SummaryView from '@/components/clarity-docs/summary-view';
 import SummarySkeleton from '@/components/clarity-docs/summary-skeleton';
 import { useAuth } from '@/components/auth/auth-provider';
-import { saveDocumentToHistory } from '@/lib/firestore-actions';
+import { saveDocumentToHistory, updateDocumentInHistory } from '@/lib/firestore-actions';
 
 function SummaryPageContent() {
   const [isLoading, setIsLoading] = useState(true);
@@ -79,16 +79,37 @@ function SummaryPageContent() {
         // Save summary data to localStorage for persistence across reloads
         localStorage.setItem('claritySummaryData', JSON.stringify(summaryResult));
         
-        // Save document to Firestore history
+        // Check if we're editing an existing document
+        const editingDocumentId = localStorage.getItem('clarityEditingDocumentId');
+        
+        // Save or update document to Firestore history
         if (user) {
           try {
-            await saveDocumentToHistory(user.uid, {
-              documentName: `Document - ${new Date().toLocaleString()}`,
-              documentType: type || 'Other',
-              content: text,
-              summary: summaryResult,
-              fileType: 'text',
-            });
+            if (editingDocumentId) {
+              // Update existing document
+              await updateDocumentInHistory(editingDocumentId, {
+                documentName: `Document - ${new Date().toLocaleString()}`,
+                documentType: type || 'Other',
+                content: text,
+                summary: summaryResult,
+                fileType: 'text',
+              });
+              // Clear the editing flag
+              localStorage.removeItem('clarityEditingDocumentId');
+              toast({
+                title: 'Document Updated',
+                description: 'Your document has been updated successfully.',
+              });
+            } else {
+              // Create new document
+              await saveDocumentToHistory(user.uid, {
+                documentName: `Document - ${new Date().toLocaleString()}`,
+                documentType: type || 'Other',
+                content: text,
+                summary: summaryResult,
+                fileType: 'text',
+              });
+            }
           } catch (error) {
             console.error('Failed to save to history:', error);
             // Don't show error to user, just log it
@@ -107,6 +128,7 @@ function SummaryPageContent() {
     localStorage.removeItem('clarityDocumentText');
     localStorage.removeItem('clarityAgreementType');
     localStorage.removeItem('claritySummaryData');
+    localStorage.removeItem('clarityEditingDocumentId');
     router.push('/clarity');
   };
 

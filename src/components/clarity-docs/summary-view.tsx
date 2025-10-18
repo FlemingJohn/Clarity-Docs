@@ -287,6 +287,29 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
     window.open(calendarUrl, '_blank', 'rel=noopener,noreferrer');
   };
 
+  const handleTimelineEventCalendar = (date: string, event: string) => {
+    const title = encodeURIComponent(event);
+    const description = encodeURIComponent(`Contract Timeline Event: ${event}`);
+    
+    let calendarUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}`;
+    
+    try {
+      const eventDate = new Date(date);
+      
+      // Check if the date is valid
+      if (!isNaN(eventDate.getTime())) {
+        const dateStr = eventDate.toISOString().split('T')[0].replace(/-/g, '');
+        calendarUrl += `&dates=${dateStr}/${dateStr}`;
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+    }
+    
+    calendarUrl += `&details=${description}`;
+    
+    window.open(calendarUrl, '_blank', 'rel=noopener,noreferrer');
+  };
+
   const submitQuestion = async (question: string) => {
     if (!question.trim()) {
       return;
@@ -337,9 +360,9 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
   };
 
   return (
-    <div className="w-full h-full">
-      <Card className="flex flex-col h-full">
-        <CardHeader className="flex-shrink-0">
+    <div className="w-full">
+      <Card className="flex flex-col">
+        <CardHeader>
           <div className="flex justify-between items-center gap-2">
             <CardTitle>Clarity Panel</CardTitle>
             <div className="flex items-center gap-2">
@@ -371,11 +394,11 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                       </div>
                     </div>
                   </DialogHeader>
-                  <ScrollArea className="h-[65vh] w-full rounded-md border p-4">
+                  <div className="max-h-[65vh] overflow-y-auto w-full rounded-md border p-4">
                     <div className="text-sm whitespace-pre-wrap">
                       {originalText}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </DialogContent>
               </Dialog>
               <Button variant="outline" size="sm" onClick={onReset}>
@@ -385,9 +408,9 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <Tabs defaultValue="summary" className="w-full flex-1 flex flex-col" onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
+        <CardContent>
+          <Tabs defaultValue="summary" className="w-full" onValueChange={handleTabChange}>
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="summary">Summary</TabsTrigger>
               <TabsTrigger value="risks">Risk Score</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -395,8 +418,8 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
               <TabsTrigger value="in-simple-terms">In Simple Terms</TabsTrigger>
               <TabsTrigger value="negotiation">Negotiate</TabsTrigger>
             </TabsList>
-                        <TabsContent value="summary" className="flex-1 flex flex-col overflow-hidden mt-0">
-               <div className="flex gap-2 p-4 border-b flex-shrink-0">
+            <TabsContent value="summary" className="mt-4">
+               <div className="flex gap-2 p-4 border-b">
                  <Select value={targetLanguage} onValueChange={setTargetLanguage}>
                   <SelectTrigger className="w-[140px] h-9" disabled={isTranslating}>
                     <SelectValue placeholder="Translate..." />
@@ -414,16 +437,15 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 </Button>
               </div>
               {isTranslating && !translatedSummary && (
-                <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
+                <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Translating...</span>
                 </div>
               )}
-              <p className="text-sm text-muted-foreground p-4 flex-shrink-0">
+              <p className="text-sm text-muted-foreground p-4">
                 {translatedSummary ? `Translated to ${languages.find(l => l.value === targetLanguage)?.label}. Click on a highlighted term to get its definition.` : 'Click on a highlighted term to get its definition.'}
               </p>
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="text-base leading-relaxed p-4 space-y-4">
+              <div className="text-base leading-relaxed p-4 space-y-4 pb-12">
                       {displayedSummary.map((item, index) => (
                         <div key={index}>
                           <h3 className="font-semibold text-md mb-1">{item.keyPoint}</h3>
@@ -498,17 +520,15 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                         </>
                       )}
                 </div>
-              </ScrollArea>
             </TabsContent>
-            <TabsContent value="risks" className="flex-1 flex flex-col overflow-hidden mt-0">
+            <TabsContent value="risks" className="mt-4">
                 {isRisksLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Analyzing document for risks...</span>
                     </div>
                 )}
-                 <ScrollArea className='flex-1 min-h-0'>
-                    <div className="p-4 space-y-6">
+                    <div className="p-4 space-y-6 pb-8">
                         {riskScore ? (
                            <Card>
                                 <CardHeader>
@@ -578,17 +598,15 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                            </Card>
                         ) : (!isRisksLoading && <p className="text-sm text-muted-foreground">Could not generate risk score for this document.</p>)}
                     </div>
-                </ScrollArea>
             </TabsContent>
-            <TabsContent value="timeline" className="flex-1 flex flex-col overflow-hidden mt-0">
+            <TabsContent value="timeline" className="mt-4">
                 {isTimelineLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Scanning document for key dates...</span>
                     </div>
                 )}
-                <ScrollArea className="flex-1 min-h-0">
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-4 pb-8">
                         {timelineEvents.length > 0 ? (
                             <div className="relative pl-6">
                                 <div className="absolute left-6 top-0 h-full w-0.5 bg-border -translate-x-1/2"></div>
@@ -598,25 +616,37 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                             <div className="h-3 w-3 rounded-full bg-primary"></div>
                                         </div>
                                         <div className="pl-8">
-                                            <p className="font-semibold text-primary">{new Date(item.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}</p>
-                                            <p className="text-sm text-muted-foreground">{item.event}</p>
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-primary">{new Date(item.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}</p>
+                                                    <p className="text-sm text-muted-foreground">{item.event}</p>
+                                                </div>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    onClick={() => handleTimelineEventCalendar(item.date, item.event)}
+                                                    className="flex-shrink-0"
+                                                >
+                                                    <CalendarPlus className="mr-2 h-4 w-4"/>
+                                                    Add
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (!isTimelineLoading && <p className="text-sm text-muted-foreground text-center pt-8">No specific dates or deadlines found in this document.</p>)}
                     </div>
-                </ScrollArea>
             </TabsContent>
-            <TabsContent value="scenarios" className="flex-1 flex flex-col overflow-hidden mt-0">
+            <TabsContent value="scenarios" className="mt-4">
                 {isScenarioLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Analyzing document...</span>
                     </div>
                 )}
-                <ScrollArea className="flex-1 min-h-0">
-                    <div className="p-4 space-y-4">
+                <div>
+                    <div className="p-4 space-y-4 pb-8">
                         {scenarios.map((scenario, index) => (
                             <div key={index} className="space-y-3">
                                 <div className="flex items-start gap-3">
@@ -659,8 +689,8 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                             </div>
                         )}
                     </div>
-                </ScrollArea>
-                <div className="p-4 border-t flex-shrink-0">
+                </div>
+                <div className="p-4 border-t">
                     <form onSubmit={handleScenarioSubmit} className="flex items-center gap-2">
                         <Input 
                             type="text"
@@ -676,15 +706,14 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                     </form>
                 </div>
             </TabsContent>
-             <TabsContent value="in-simple-terms" className="flex-1 flex flex-col overflow-hidden mt-0">
+             <TabsContent value="in-simple-terms" className="mt-4">
                 {isExamplesLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Generating real-world examples...</span>
                     </div>
                 )}
-                <ScrollArea className='flex-1 min-h-0'>
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-4 pb-8">
                         {examples.length > 0 ? (
                            <Accordion type="single" collapsible className="w-full">
                                 {examples.map((item, index) => (
@@ -698,17 +727,15 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                            </Accordion>
                         ) : (!isExamplesLoading && <p className="text-sm text-muted-foreground">Could not generate examples from this document.</p>)}
                     </div>
-                </ScrollArea>
             </TabsContent>
-             <TabsContent value="negotiation" className="flex-1 flex flex-col overflow-hidden mt-0">
+             <TabsContent value="negotiation" className="mt-4">
                 {isNegotiationLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b flex-shrink-0">
+                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Generating negotiation suggestions...</span>
                     </div>
                 )}
-                <ScrollArea className='flex-1 min-h-0'>
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-4 pb-8">
                         {negotiationSuggestions.length > 0 ? (
                            <Accordion type="single" collapsible className="w-full">
                                 {negotiationSuggestions.map((item, index) => (
@@ -726,7 +753,6 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                            </Accordion>
                         ) : (!isNegotiationLoading && <p className="text-sm text-muted-foreground">No specific negotiation points were identified in this document.</p>)}
                     </div>
-                </ScrollArea>
             </TabsContent>
           </Tabs>
         </CardContent>

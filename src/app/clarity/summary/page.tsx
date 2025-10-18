@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { summarizeDocumentAction } from '@/lib/actions';
 import type { GeneratePlainLanguageSummaryOutput } from '@/ai/flows/generate-plain-language-summary';
@@ -10,7 +10,7 @@ import SummaryView from '@/components/clarity-docs/summary-view';
 import SummarySkeleton from '@/components/clarity-docs/summary-skeleton';
 import { useAuth } from '@/components/auth/auth-provider';
 
-export default function SummaryPage() {
+function SummaryPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [documentText, setDocumentText] = useState('');
   const [summaryData, setSummaryData] = useState<GeneratePlainLanguageSummaryOutput | null>(null);
@@ -18,7 +18,6 @@ export default function SummaryPage() {
   const { toast } = useToast();
   const { user, loading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -115,7 +114,7 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="w-full h-full p-12">
+    <div className="w-full p-16">
       <SummaryView 
         originalText={documentText} 
         summaryData={summaryData} 
@@ -123,5 +122,17 @@ export default function SummaryPage() {
         agreementType={agreementType} 
       />
     </div>
+  );
+}
+
+export default function SummaryPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full h-full flex items-center justify-center p-4">
+        <SummarySkeleton />
+      </div>
+    }>
+      <SummaryPageContent />
+    </Suspense>
   );
 }

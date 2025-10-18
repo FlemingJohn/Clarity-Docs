@@ -601,12 +601,13 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
             </TabsContent>
             <TabsContent value="timeline" className="mt-4">
                 {isTimelineLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground p-4 border-b">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground p-4 border-b">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Scanning document for key dates...</span>
                     </div>
                 )}
-                    <div className="p-4 space-y-4 pb-8">
+                    <div className="flex justify-center p-4 pb-8 mt-8">
+                        <div className="w-full max-w-3xl">
                         {timelineEvents.length > 0 ? (
                             <div className="relative pl-6">
                                 <div className="absolute left-6 top-0 h-full w-0.5 bg-border -translate-x-1/2"></div>
@@ -636,6 +637,7 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                                 ))}
                             </div>
                         ) : (!isTimelineLoading && <p className="text-sm text-muted-foreground text-center pt-8">No specific dates or deadlines found in this document.</p>)}
+                        </div>
                     </div>
             </TabsContent>
             <TabsContent value="scenarios" className="mt-4">
@@ -646,23 +648,23 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                     </div>
                 )}
                 <div>
-                    <div className="p-4 space-y-4 pb-8">
+                    <div className="p-4 space-y-6 pb-24 mb-20">
                         {scenarios.map((scenario, index) => (
-                            <div key={index} className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Avatar className="h-8 w-8 border">
-                                        <AvatarFallback>U</AvatarFallback>
-                                    </Avatar>
-                                    <div className="bg-muted p-3 rounded-lg">
+                            <div key={index} className="space-y-4">
+                                <div className="flex items-start gap-3 justify-end">
+                                    <div className="bg-muted p-3 rounded-lg w-3/4">
                                         <p className="font-semibold">You</p>
                                         <p className="text-sm">{scenario.question}</p>
                                     </div>
+                                    <Avatar className="h-8 w-8 border">
+                                        <AvatarFallback>U</AvatarFallback>
+                                    </Avatar>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <Avatar className="h-8 w-8 border">
                                         <AvatarFallback>AI</AvatarFallback>
                                     </Avatar>
-                                    <div className="bg-primary/10 text-primary-foreground p-3 rounded-lg">
+                                    <div className="bg-primary/10 text-primary-foreground p-3 rounded-lg w-3/4">
                                         <p className="font-semibold text-primary">ClarityDocs AI</p>
                                         <p className="text-sm text-foreground">{scenario.answer}</p>
                                     </div>
@@ -690,8 +692,8 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                         )}
                     </div>
                 </div>
-                <div className="p-4 border-t">
-                    <form onSubmit={handleScenarioSubmit} className="flex items-center gap-2">
+                <div className="p-4 pt-8 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                    <form onSubmit={handleScenarioSubmit} className="flex items-end gap-2 max-w-4xl mx-auto">
                         <Input 
                             type="text"
                             placeholder="Ask a what-if question..."
@@ -715,16 +717,21 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 )}
                     <div className="p-4 space-y-4 pb-8">
                         {examples.length > 0 ? (
-                           <Accordion type="single" collapsible className="w-full">
+                            <div className="space-y-4">
                                 {examples.map((item, index) => (
-                                    <AccordionItem key={index} value={`item-${index}`}>
-                                        <AccordionTrigger className="text-left text-sm">{item.clause}</AccordionTrigger>
-                                        <AccordionContent className="text-base text-accent-foreground bg-accent/10 p-4 rounded-md">
-                                           <span className="font-semibold">In simple terms:</span> {item.example}
-                                        </AccordionContent>
-                                    </AccordionItem>
+                                    <Card key={index} className="border-l-4 border-l-primary">
+                                        <CardHeader>
+                                            <CardTitle className="text-base">{item.clause}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            <div className="flex items-center gap-2 font-semibold text-sm">
+                                                <span>In simple terms:</span>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">{item.example}</p>
+                                        </CardContent>
+                                    </Card>
                                 ))}
-                           </Accordion>
+                            </div>
                         ) : (!isExamplesLoading && <p className="text-sm text-muted-foreground">Could not generate examples from this document.</p>)}
                     </div>
             </TabsContent>
@@ -737,20 +744,22 @@ const SummaryView = ({ originalText, summaryData, onReset, agreementType }: Summ
                 )}
                     <div className="p-4 space-y-4 pb-8">
                         {negotiationSuggestions.length > 0 ? (
-                           <Accordion type="single" collapsible className="w-full">
+                            <div className="space-y-4">
                                 {negotiationSuggestions.map((item, index) => (
-                                    <AccordionItem key={index} value={`item-${index}`}>
-                                        <AccordionTrigger className="text-left text-sm">{item.clause}</AccordionTrigger>
-                                        <AccordionContent className="text-base text-accent-foreground bg-accent/10 p-4 rounded-md space-y-2">
-                                           <div className="flex items-center gap-2 font-semibold">
-                                             <MessageSquareQuote className="h-5 w-5 text-accent"/>
-                                             <span>Suggested Talking Point</span>
-                                           </div>
-                                           <p>{item.suggestion}</p>
-                                        </AccordionContent>
-                                    </AccordionItem>
+                                    <Card key={index} className="border-l-4 border-l-primary">
+                                        <CardHeader>
+                                            <CardTitle className="text-base">{item.clause}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            <div className="flex items-center gap-2 font-semibold text-sm">
+                                                <MessageSquareQuote className="h-5 w-5 text-primary"/>
+                                                <span>Suggested Talking Point</span>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">{item.suggestion}</p>
+                                        </CardContent>
+                                    </Card>
                                 ))}
-                           </Accordion>
+                            </div>
                         ) : (!isNegotiationLoading && <p className="text-sm text-muted-foreground">No specific negotiation points were identified in this document.</p>)}
                     </div>
             </TabsContent>
